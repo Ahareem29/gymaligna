@@ -116,7 +116,6 @@ class _RegisterFormState extends State<_RegisterForm> {
     final password = passwordController.text.trim();
     final confirm = confirmController.text.trim();
 
-    // Validation
     if (name.isEmpty || email.isEmpty || password.isEmpty || confirm.isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -131,46 +130,48 @@ class _RegisterFormState extends State<_RegisterForm> {
       return;
     }
 
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Password must be at least 6 characters")),
+      );
+      return;
+    }
+
     try {
       setState(() => isLoading = true);
 
-      final response = await Supabase.instance.client.auth.signUp(
+      await Supabase.instance.client.auth.signUp(
         email: email,
         password: password,
+        data: {'full_name': name},
       );
 
-      final user = Supabase.instance.client.auth.currentUser;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Account created! Please check your email if verification is required.",
+            ),
+          ),
+        );
 
-      if (user != null) {
-        // Create profile row
-        await Supabase.instance.client.from('profiles').insert({
-          'id': user.id,
-          'name': name,
-          'email': email,
-          'phone': '',
-          'state': '',
-          'city': '',
-          'address': '',
-          'total_xp': 0,
-          'level': 1,
-          'streak': 0,
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Account created successfully")),
-          );
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const SignInScreen()),
-          );
-        }
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const SignInScreen()),
+        );
+      }
+    } on AuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     } finally {
       if (mounted) {
         setState(() => isLoading = false);
